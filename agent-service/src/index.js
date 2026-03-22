@@ -4,6 +4,7 @@ import { Agent, ProviderTransport } from '@mariozechner/pi-agent-core';
 import { getModel } from '@mariozechner/pi-ai';
 import { Type } from '@sinclair/typebox';
 import pkg from 'duckduckgo-search';
+import { EventEmitter } from 'events';
 const { search } = pkg;
 
 import { loadConfig, loadPrompts, loadFinancialContexts } from './config.js';
@@ -11,6 +12,11 @@ import { loadConfig, loadPrompts, loadFinancialContexts } from './config.js';
 const config = loadConfig();
 const prompts = loadPrompts(config);
 const financialContexts = loadFinancialContexts(config);
+
+// Global event emitter for streaming analysis events
+const analysisEvents = new EventEmitter();
+// Keep track of active analyses by article_id
+const activeAnalyses = new Map();
 
 const SYSTEM_PROMPT = prompts?.system || `
 You are a rigorous financial news analyst specializing in ETF impact assessment.
@@ -461,7 +467,7 @@ function createAgent() {
   });
 }
 
-async function analyzeNews(article, products) {
+async function analyzeNews(article, products, articleId = null) {
   const agent = createAgent();
 
   const productList = products.map(p => 
@@ -487,9 +493,29 @@ Instructions:
   let results = [];
   
   agent.subscribe((event) => {
-    if (event.type === 'tool_execution_end') {
+    const emitEvent = (eventType, data = {}) => {
+      if (articleId) {
+        const eventPayload = {
+          type: eventType,
+          article_id: articleId,
+          timestamp: new Date().toISOString(),
+          ...data
+        };
+        analysisEvents.emit('analysis_event', eventPayload);
+        log('debug', `Emitted ${eventType}`, { articleId, ...data });
+      }
+    };
+
+    if (event.type === 'tool_execution_start' || event.type === 'tool_start') {
+      const toolName = event.toolName || event.name || 'unknown';
+      emitEvent('tool_start', { tool: toolName });
+    }
+    
+    if (event.type === 'tool_execution_end' || event.type === 'tool_end') {
+      const toolName = event.toolName || event.name || 'unknown';
+      emitEvent('tool_end', { tool: toolName });
+      
       try {
-        const toolName = event.toolName || event.name;
         if (toolName === 'analyze_impact') {
           const data = JSON.parse(event.result.content[0].text);
           results = data;
@@ -528,7 +554,8 @@ app.post('/analyze', async (req, res) => {
 
     const results = await analyzeNews(
       { title, content, summary },
-      products
+      products,
+      article_id
     );
 
     log('info', `Analysis complete`, { articleId: article_id, resultsCount: results.length });
@@ -539,10 +566,69 @@ app.post('/analyze', async (req, res) => {
   }
 });
 
+app.post('/analyze/stream', async (req, res) => {
+  const { article_id, title, content, summary, products } = req.body;
+
+  if (!title || !products || products.length === 0) {
+    return res.status(400).json({ error: 'Missing required fields: title, products' });
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const sendEvent = (event) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  };
+
+  const eventHandler = (event) => {
+    if (event.article_id === article_id) {
+      sendEvent(event);
+      if (event.type === 'analysis_complete' || event.type === 'analysis_error') {
+        analysisEvents.off('analysis_event', eventHandler);
+      }
+    }
+  };
+
+  analysisEvents.on('analysis_event', eventHandler);
+
+  sendEvent({ type: 'analysis_start', article_id, timestamp: new Date().toISOString() });
+  log('info', `Starting streaming analysis for article ${article_id}`);
+
+  try {
+    const results = await analyzeNews(
+      { title, content, summary },
+      products,
+      article_id
+    );
+
+    sendEvent({ 
+      type: 'analysis_complete', 
+      article_id, 
+      results,
+      timestamp: new Date().toISOString() 
+    });
+    log('info', `Streaming analysis complete`, { articleId: article_id, resultsCount: results.length });
+  } catch (error) {
+    sendEvent({ 
+      type: 'analysis_error', 
+      article_id, 
+      error: error.message,
+      timestamp: new Date().toISOString() 
+    });
+    log('error', 'Streaming analysis error', { error: error.message });
+  } finally {
+    analysisEvents.off('analysis_event', eventHandler);
+    res.end();
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     tools: ['analyze_impact', 'web_search', 'get_historical_news', 'get_financial_context'],
+    endpoints: ['/analyze', '/analyze/stream'],
     config: {
       llmProvider: config.llm.provider,
       llmModel: config.llm.model,

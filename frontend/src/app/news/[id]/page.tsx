@@ -7,7 +7,14 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, RefreshCw, AlertCircle, Star } from 'lucide-react';
+import { Loader2, RefreshCw, AlertCircle, Star, Wrench, CheckCircle2 } from 'lucide-react';
+
+interface AnalysisStep {
+  id: string;
+  tool: string;
+  status: 'running' | 'completed';
+  timestamp: string;
+}
 
 function parseDate(dateStr: string): Date {
   if (!dateStr) return new Date();
@@ -114,6 +121,7 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
+  const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([]);
 
   const productMap = new Map(products.map(p => [p.code, p]));
 
@@ -121,6 +129,9 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
     try {
       const data = await api.getNewsDetail(parseInt(params.id));
       setNews(data);
+      if (data.analysis_status !== 'analyzing') {
+        setAnalysisSteps([]);
+      }
     } catch (err) {
       console.error('Failed to load news:', err);
     } finally {
@@ -134,8 +145,27 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
   }, [loadNews]);
 
   const handleWebSocketMessage = useCallback((message: unknown) => {
-    const msg = message as { type: string; data: Record<string, unknown> };
-    if (msg.type === 'news_update') {
+    const msg = message as { type: string; data: Record<string, unknown>; news_id?: number; tool?: string; timestamp?: string };
+    
+    if (msg.type === 'tool_start' && msg.news_id === parseInt(params.id)) {
+      setAnalysisSteps(prev => [
+        ...prev,
+        {
+          id: `${msg.tool}-${Date.now()}`,
+          tool: msg.tool || 'unknown',
+          status: 'running',
+          timestamp: msg.timestamp || new Date().toISOString(),
+        }
+      ]);
+    } else if (msg.type === 'tool_end' && msg.news_id === parseInt(params.id)) {
+      setAnalysisSteps(prev => 
+        prev.map(step => 
+          step.tool === msg.tool && step.status === 'running'
+            ? { ...step, status: 'completed' }
+            : step
+        )
+      );
+    } else if (msg.type === 'news_update') {
       const newsId = msg.data.id as number;
       if (newsId === parseInt(params.id)) {
         loadNews();
@@ -277,10 +307,40 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
         {!hasAnalyses ? (
           <div className="bg-white rounded-lg shadow-sm border p-6">
             {isAnalyzing ? (
-              <div className="text-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
-                <p className="text-gray-500">Analyzing impact on products...</p>
-                <p className="text-gray-400 text-sm mt-1">This may take up to 2 minutes</p>
+              <div>
+                {analysisSteps.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Analysis Progress</h3>
+                    <div className="space-y-2">
+                      {analysisSteps.map((step) => (
+                        <div 
+                          key={step.id}
+                          className={`flex items-center gap-2 text-sm p-2 rounded ${
+                            step.status === 'running' 
+                              ? 'bg-blue-50 text-blue-700' 
+                              : 'bg-green-50 text-green-700'
+                          }`}
+                        >
+                          {step.status === 'running' ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
+                          <Wrench className="w-4 h-4" />
+                          <span className="font-medium">{step.tool}</span>
+                          <span className="text-xs opacity-75">
+                            {step.status === 'running' ? 'running...' : 'completed'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="text-center py-4">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
+                  <p className="text-gray-500">Analyzing impact on products...</p>
+                  <p className="text-gray-400 text-sm mt-1">This may take up to 2 minutes</p>
+                </div>
               </div>
             ) : isPending ? (
               <div className="text-center py-8">

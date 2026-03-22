@@ -485,17 +485,57 @@ async def analyze_news(news_id: int, db: Session = Depends(get_db)):
         ],
     )
 
+    result = None
     try:
         async with httpx.AsyncClient() as client:
-            logger.debug(f"Calling agent service: {AGENT_SERVICE_URL}/analyze")
-            response = await client.post(
-                f"{AGENT_SERVICE_URL}/analyze",
+            logger.debug(f"Calling agent service: {AGENT_SERVICE_URL}/analyze/stream")
+            async with client.stream(
+                "POST",
+                f"{AGENT_SERVICE_URL}/analyze/stream",
                 json=request.model_dump(),
                 timeout=AGENT_TIMEOUT,
-            )
-            response.raise_for_status()
-            result = response.json()
-            logger.info(f"Agent returned {len(result.get('results', []))} analyses")
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        try:
+                            event = json.loads(line[6:])
+                            event_type = event.get("type")
+
+                            if event_type == "tool_start":
+                                await manager.broadcast(
+                                    {
+                                        "type": "tool_start",
+                                        "news_id": news_id,
+                                        "tool": event.get("tool"),
+                                        "timestamp": event.get("timestamp"),
+                                    }
+                                )
+                                logger.debug(f"Tool started: {event.get('tool')}")
+
+                            elif event_type == "tool_end":
+                                await manager.broadcast(
+                                    {
+                                        "type": "tool_end",
+                                        "news_id": news_id,
+                                        "tool": event.get("tool"),
+                                        "timestamp": event.get("timestamp"),
+                                    }
+                                )
+                                logger.debug(f"Tool ended: {event.get('tool')}")
+
+                            elif event_type == "analysis_complete":
+                                result = {"results": event.get("results", [])}
+                                logger.info(
+                                    f"Analysis complete with {len(result['results'])} results"
+                                )
+
+                            elif event_type == "analysis_error":
+                                raise Exception(event.get("error", "Unknown error"))
+
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse SSE event: {line}")
+
     except httpx.TimeoutException:
         logger.error(f"Agent service timeout after {AGENT_TIMEOUT}s")
         news.analysis_status = "failed"
@@ -526,6 +566,19 @@ async def analyze_news(news_id: int, db: Session = Depends(get_db)):
             status_code=503,
             detail=f"Agent service unreachable: {str(e)}",
         )
+    except Exception as e:
+        logger.error(f"Analysis error: {str(e)}")
+        news.analysis_status = "failed"
+        news.analysis_retry_count = (news.analysis_retry_count or 0) + 1
+        db.commit()
+        await manager.send_news_update(news, "failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis error: {str(e)}",
+        )
+
+    if not result:
+        result = {"results": []}
 
     saved_count = 0
     for item in result.get("results", []):
