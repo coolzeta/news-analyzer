@@ -1,0 +1,82 @@
+{
+  "semiconductor": {
+    "overview": "The semiconductor industry is cyclical with high capital intensity. Current cycle (2024-2025) driven by AI demand, particularly HBM (High Bandwidth Memory) for AI accelerators.",
+    "key_players": ["Samsung Electronics", "SK Hynix", "TSMC", "Intel", "NVIDIA", "AMD", "Qualcomm", "Micron"],
+    "market_dynamics": "Key drivers: AI/ML training demand, data center expansion, smartphone recovery, automotive electronics. Inventory correction cycle largely complete as of 2024.",
+    "etf_impact": "Semiconductor ETFs are HIGHLY sensitive to: earnings reports from major players, AI demand indicators, China export controls, memory pricing trends."
+  },
+  "samsung electronics": {
+    "overview": "World's largest memory chip maker (DRAM, NAND) and major smartphone manufacturer. Listed on KOSPI (005930.KS).",
+    "business_segments": {
+      "DX": "Device eXperience - smartphones, TVs, appliances (~40% revenue)",
+      "DS": "Device Solutions - memory, foundry, display (~50% revenue)"
+    },
+    "key_metrics": "Memory market share: DRAM ~40%, NAND ~35%. HBM market share growing rapidly to challenge SK Hynix.",
+    "etf_impact": "Samsung-tracking ETFs (7747.HK 2x long, 7347.HK 2x inverse) are DIRECTLY impacted by: Samsung earnings, memory pricing, smartphone market share, HBM orders from NVIDIA."
+  },
+  "sk hynix": {
+    "overview": "Second-largest DRAM manufacturer globally. Primary HBM supplier to NVIDIA. Listed on KOSPI (000660.KS).",
+    "business_segments": {
+      "DRAM": "~70% revenue, strong in HBM for AI",
+      "NAND": "~20% revenue",
+      "CIS": "CMOS Image Sensors ~10%"
+    },
+    "key_metrics": "HBM market share ~50%+ (dominant position). Key NVIDIA supplier for H100/H200 AI accelerators.",
+    "etf_impact": "SK Hynix-tracking ETFs (7709.HK 2x long) are DIRECTLY impacted by: NVIDIA AI demand, HBM pricing/shipments, DRAM price trends, data center capex."
+  },
+  "china a-share": {
+    "overview": "Mainland China stock markets (Shanghai/Shenzhen). A-shares denominated in RMB, primarily domestic investors with limited foreign access via QFII/Stock Connect.",
+    "key_indices": {
+      "SSE 50": "Top 50 Shanghai-listed, large-cap state-owned enterprises",
+      "CSI 500": "Mid-cap growth companies, more private sector exposure",
+      "MSCI China A": "International standard A-share index"
+    },
+    "market_dynamics": "Key drivers: PBOC policy rates, property sector health, consumer confidence, regulatory environment (tech, education, gaming), US-China relations.",
+    "etf_impact": "China A-share ETFs (2828.HK MSCI China A, 3010.HK SSE 50, 3033.HK CSI 500) are DIRECTLY impacted by: Chinese economic data (GDP, PMI, retail sales), PBOC rate decisions, property stimulus measures, regulatory announcements."
+  },
+  "hong kong equity": {
+    "overview": "Hong Kong Stock Exchange - gateway between China and global capital. H-shares (Mainland companies listed in HK) dominate index.",
+    "key_indices": {
+      "HSI": "Hang Seng Index - top 80 HK-listed companies",
+      "HSCEI": "Hang Seng China Enterprises Index - H-shares",
+      "HSTECH": "Hang Seng Tech Index - tech giants"
+    },
+    "market_dynamics": "Influenced by: Chinese economic conditions, US-China relations, HKD/USD peg stability, global risk sentiment, Mainland capital flows via Stock Connect.",
+    "etf_impact": "HSI-tracking ETFs (83168.HK) are DIRECTLY impacted by: Chinese stimulus announcements, US rate decisions (HKD peg), tech regulation in China, property sector distress."
+  },
+  "japan equity": {
+    "overview": "Tokyo Stock Exchange - third-largest equity market globally. Nikkei 225 is price-weighted index of 225 blue-chip companies.",
+    "key_indices": {
+      "Nikkei 225": "Price-weighted, similar to Dow Jones. Heavy tech/auto weighting.",
+      "TOPIX": "Market-cap weighted, broader coverage."
+    },
+    "market_dynamics": "Key drivers: Bank of Japan monetary policy, yen exchange rate (weaker yen helps exporters), corporate governance reforms (shareholder returns), wage growth.",
+    "etf_impact": "Japan ETFs (3115.HK Nikkei 225) are DIRECTLY impacted by: BoJ rate decisions, yen/USD moves, Japanese corporate earnings, Abe/Kishida policy legacy."
+  },
+  "technology": {
+    "overview": "Technology sector spans semiconductors, software, hardware, internet services. High growth but rate-sensitive valuations.",
+    "key_themes": ["AI/ML infrastructure", "Cloud computing", "Cybersecurity", "Digital transformation", "5G/IoT"],
+    "market_dynamics": "Innovation cycles rapid. Key risks: regulatory scrutiny, interest rate sensitivity (growth valuations), China-US tech decoupling.",
+    "etf_impact": "Tech-heavy ETFs are sensitive to: Fed rate expectations, AI investment cycles, chip export controls, Big Tech earnings, cybersecurity incidents."
+  },
+  "memory chip": {
+    "overview": "Memory chips (DRAM, NAND) are commodities with cyclical pricing. Current cycle (2024) seeing recovery driven by AI/HBM demand.",
+    "types": {
+      "DRAM": "Volatile memory for computing. HBM is premium segment for AI.",
+      "NAND": "Non-volatile storage. SSDs, smartphones, data centers."
+    },
+    "price_drivers": "Supply discipline (production cuts), demand recovery, AI infrastructure build-out, inventory levels.",
+    "etf_impact": "Memory-focused ETFs/products track Samsung and SK Hynix closely. Sensitive to: memory price announcements, HBM contract wins, data center capex."
+  },
+  "leveraged etf": {
+    "overview": "Leveraged ETFs use derivatives to amplify daily returns (typically 2x or -2x). NOT suitable for long-term holding due to volatility decay.",
+    "mechanics": "Daily reset means compounding works against holders in volatile, sideways markets. Works in favor during strong trends.",
+    "risk_factors": "Volatility decay, tracking error, higher expense ratios, counterparty risk.",
+    "etf_impact": "Leveraged products (7709.HK, 7747.HK, 7347.HK) AMPLIFY underlying moves. A 5% underlying move = ~10% ETF move (before decay). EXTREMELY sensitive to daily volatility."
+  },
+  "inverse etf": {
+    "overview": "Inverse ETFs profit from DECLINE in underlying asset. -2x means gains 2x when underlying falls 1%, loses 2x when underlying rises 1%.",
+    "use_cases": "Short-term hedging, not long-term holdings. Severe decay in trending markets.",
+    "etf_impact": "Inverse products (7347.HK Samsung -2x) are OPPOSITE of underlying. Samsung stock up = ETF down (amplified). Positive news for Samsung is NEGATIVE for inverse ETF."
+  }
+}

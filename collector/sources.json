@@ -1,0 +1,22 @@
+{
+  "sources": [
+    {
+      "type": "rss",
+      "name": "Investing.com",
+      "url": "https://www.investing.com/rss/news.rss"
+    },
+    {
+      "type": "rss",
+      "name": "CoinDesk",
+      "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"
+    },
+    {
+      "type": "rss",
+      "name": "Yahoo Finance",
+      "url": "https://finance.yahoo.com/rss/topstories"
+    }
+  ],
+  "scheduler": {
+    "interval_minutes": 1
+  }
+}

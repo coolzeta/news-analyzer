@@ -1,0 +1,96 @@
+version: '0.1'
+
+services:
+  main-service:
+    build: ./main-service
+    container_name: main-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - AGENT_SERVICE_URL=http://agent-service:8001
+      - AGENT_TIMEOUT=${AGENT_TIMEOUT:-120}
+      - AUTO_ANALYZE=${AUTO_ANALYZE:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - main-service-data:/app/data
+    depends_on:
+      agent-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - news-network
+
+  agent-service:
+    build: ./agent-service
+    container_name: agent-service
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - LLM_PROVIDER=${LLM_PROVIDER:-openrouter}
+      - LLM_MODEL=${LLM_MODEL}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - PORT=8001
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - news-network
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
+    container_name: news-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      main-service:
+        condition: service_healthy
+    networks:
+      - news-network
+
+  collector:
+    build: ./collector
+    container_name: news-collector
+    restart: unless-stopped
+    environment:
+      - MAIN_SERVICE_URL=http://main-service:8000
+      - CHROMA_PERSIST_DIR=/app/data/chroma
+      - FAILED_ARTICLES_FILE=/app/data/failed_articles.json
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - LOG_FILE=/app/data/collector.log
+      - COLLECT_INTERVAL_MINUTES=${COLLECT_INTERVAL_MINUTES:-1}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nvidia/llama-nemotron-embed-vl-1b-v2:free}
+      - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.85}
+    volumes:
+      - ./collector/sources.json:/app/sources.json:ro
+      - collector-data:/app/data
+    depends_on:
+      main-service:
+        condition: service_healthy
+    networks:
+      - news-network
+
+volumes:
+  collector-data:
+  main-service-data:
+
+networks:
+  news-network:
+    driver: bridge
