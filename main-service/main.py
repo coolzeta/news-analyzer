@@ -721,22 +721,30 @@ def get_sentiment_heatmap(
     products = db.query(Product).all()
     product_codes = [p.code for p in products]
 
-    def get_local_date(created_at_str: str) -> str:
-        if not created_at_str:
-            return start_str
+    def get_local_date(date_str: str) -> str:
+        if not date_str:
+            return None
         try:
-            dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+            if date_str.endswith("Z"):
+                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            elif "+" in date_str or date_str.count("-") > 2:
+                dt = datetime.fromisoformat(date_str)
+            else:
+                dt = datetime.fromisoformat(date_str)
+                dt = dt.replace(tzinfo=TZ_SHANGHAI)
             local_dt = dt.astimezone(TZ_SHANGHAI)
             return local_dt.strftime("%Y-%m-%d")
         except:
-            return created_at_str[:10] if len(created_at_str) >= 10 else start_str
+            return date_str[:10] if len(date_str) >= 10 else None
 
-    all_analyses = db.query(Analysis).all()
+    analyses = db.query(Analysis).options(joinedload(Analysis.news)).all()
 
     date_product_sentiment: dict = {}
-    for a in all_analyses:
-        date_key = get_local_date(a.created_at)
-        if date_key < start_str or date_key > end_str:
+    for a in analyses:
+        if not a.news or not a.news.published_date:
+            continue
+        date_key = get_local_date(a.news.published_date)
+        if not date_key or date_key < start_str or date_key > end_str:
             continue
         if date_key not in date_product_sentiment:
             date_product_sentiment[date_key] = {}
@@ -825,20 +833,28 @@ def get_sentiment_trends(
     start_str = start_dt.strftime("%Y-%m-%d")
     end_str = end_dt.strftime("%Y-%m-%d")
 
-    def get_local_date(created_at_str: str) -> str:
-        if not created_at_str:
-            return start_str
+    def get_local_date(date_str: str) -> str:
+        if not date_str:
+            return None
         try:
-            dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+            if date_str.endswith("Z"):
+                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            elif "+" in date_str or date_str.count("-") > 2:
+                dt = datetime.fromisoformat(date_str)
+            else:
+                dt = datetime.fromisoformat(date_str)
+                dt = dt.replace(tzinfo=TZ_SHANGHAI)
             local_dt = dt.astimezone(TZ_SHANGHAI)
             return local_dt.strftime("%Y-%m-%d")
         except:
-            return created_at_str[:10] if len(created_at_str) >= 10 else start_str
+            return date_str[:10] if len(date_str) >= 10 else None
 
-    all_analyses = db.query(Analysis).all()
+    analyses = db.query(Analysis).options(joinedload(Analysis.news)).all()
 
-    def get_period_key(created_at_str: str, gran: str) -> str:
-        local_date = get_local_date(created_at_str)
+    def get_period_key(news_date_str: str, gran: str) -> str:
+        local_date = get_local_date(news_date_str)
+        if not local_date:
+            return None
         if gran == "week":
             d = datetime.strptime(local_date, "%Y-%m-%d")
             week_start = d - timedelta(days=d.weekday())
@@ -846,11 +862,11 @@ def get_sentiment_trends(
         return local_date
 
     period_data: dict = {}
-    for a in all_analyses:
-        if not a.created_at:
+    for a in analyses:
+        if not a.news or not a.news.published_date:
             continue
-        period_key = get_period_key(a.created_at, granularity)
-        if period_key < start_str or period_key > end_str:
+        period_key = get_period_key(a.news.published_date, granularity)
+        if not period_key or period_key < start_str or period_key > end_str:
             continue
         if period_key not in period_data:
             period_data[period_key] = {
