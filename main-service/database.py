@@ -17,13 +17,30 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-DB_DIR = Path(__file__).parent
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_DIR}/news.db")
+DB_DIR: Path
+DATABASE_URL: str
 
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is required")
+env_database_url = os.getenv("DATABASE_URL")
 
-logger.info(f"Using database: {DATABASE_URL.split('://')[0]}://...")
+if env_database_url:
+    DATABASE_URL = env_database_url
+    if DATABASE_URL.startswith("sqlite"):
+        db_path_str = DATABASE_URL.replace("sqlite:///", "")
+        if db_path_str.startswith("/"):
+            db_path_str = "/" + db_path_str
+        DB_DIR = Path(db_path_str).parent
+        DB_DIR.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Using DATABASE_URL from environment: {DATABASE_URL}")
+    else:
+        DB_DIR = Path(".")
+        logger.info(
+            f"Using DATABASE_URL from environment: {DATABASE_URL.split('://')[0]}://..."
+        )
+else:
+    DB_DIR = Path(__file__).parent / "data"
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+    DATABASE_URL = f"sqlite:///{DB_DIR}/news.db"
+    logger.info(f"No DATABASE_URL set, using default: {DATABASE_URL}")
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
@@ -85,6 +102,8 @@ class Analysis(Base):
 
 
 def init_db():
+    if DATABASE_URL.startswith("sqlite"):
+        DB_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
 
 

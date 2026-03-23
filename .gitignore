@@ -26,6 +26,7 @@ yarn-error.log*
 *.db
 *.sqlite
 *.sqlite3
+main-service/data/
 
 # ChromaDB
 chroma_data/

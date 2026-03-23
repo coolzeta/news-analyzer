@@ -76,6 +76,7 @@ services:
       - LOG_FILE=/app/data/collector.log
       - COLLECT_INTERVAL_MINUTES=${COLLECT_INTERVAL_MINUTES:-1}
       - LLM_API_KEY=${LLM_API_KEY}
+      - EMBEDDING_PROVIDER=${LLM_PROVIDER:-openrouter}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nvidia/llama-nemotron-embed-vl-1b-v2:free}
       - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.85}
     volumes:

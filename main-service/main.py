@@ -738,6 +738,7 @@ def get_sentiment_heatmap(
             return date_str[:10] if len(date_str) >= 10 else None
 
     analyses = db.query(Analysis).options(joinedload(Analysis.news)).all()
+    logger.debug(f"Heatmap: loaded {len(analyses)} analyses")
 
     date_product_sentiment: dict = {}
     for a in analyses:
