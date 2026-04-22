@@ -216,12 +216,6 @@ The system architecture was designed through an iterative multi-agent collaborat
 
 ---
 
-## Development Time
-
-~18 hours
-
----
-
 ## License
 
 MIT
