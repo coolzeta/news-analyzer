@@ -10,6 +10,27 @@ class ProductBase(BaseModel):
     domicile: Optional[str] = None
     sector: Optional[str] = None
     theme: Optional[str] = None
+    background: Optional[str] = None
+
+
+class ProductCreate(BaseModel):
+    code: str
+    name: str
+    asset_class: Optional[str] = None
+    domicile: Optional[str] = None
+    sector: Optional[str] = None
+    theme: Optional[str] = None
+    background: Optional[str] = None
+
+
+class ProductUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    asset_class: Optional[str] = None
+    domicile: Optional[str] = None
+    sector: Optional[str] = None
+    theme: Optional[str] = None
+    background: Optional[str] = None
 
 
 class ProductResponse(ProductBase):
@@ -91,3 +112,28 @@ class AnalysisResponseFromAgent(BaseModel):
 
 class NewsWithAnalysis(NewsResponse):
     analyses: List[AnalysisResponse] = Field(default_factory=list)
+
+
+class FinancialContextResponse(BaseModel):
+    id: int
+    topic_key: str
+    context_type: str
+    context_data: str
+    product_code: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class FinancialContextCreate(BaseModel):
+    topic_key: str
+    context_type: str
+    context_data: str
+    product_code: Optional[str] = None
+
+
+class FinancialContextUpdate(BaseModel):
+    topic_key: Optional[str] = None
+    context_type: Optional[str] = None
+    context_data: Optional[str] = None
+    product_code: Optional[str] = None

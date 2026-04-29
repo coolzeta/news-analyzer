@@ -26,17 +26,22 @@ TZ_SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 load_dotenv()
 
-from database import init_db, get_db, init_products, News, Product, Analysis
+from database import init_db, get_db, init_products, _migrate_add_background, init_financial_contexts, News, Product, Analysis, FinancialContext
 from sqlalchemy.orm import joinedload
 from schemas import (
     NewsCreate,
     NewsResponse,
     ProductResponse,
+    ProductCreate,
+    ProductUpdate,
     AnalysisCreate,
     AnalysisResponse,
     NewsWithAnalysis,
     AnalysisRequest,
     AnalysisResult,
+    FinancialContextResponse,
+    FinancialContextCreate,
+    FinancialContextUpdate,
 )
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -156,8 +161,10 @@ async def lifespan(app: FastAPI):
     init_db()
     db = next(get_db())
     try:
+        _migrate_add_background(db)
         init_products(db)
-        logger.info("Products initialized")
+        init_financial_contexts(db)
+        logger.info("Products and contexts initialized")
 
         pending_news = (
             db.query(News)
@@ -231,6 +238,132 @@ def get_product(code: str, db: Session = Depends(get_db)):
         logger.warning(f"Product not found: {code}")
         raise HTTPException(status_code=404, detail="Product not found")
     return product
+
+
+@app.post("/api/products", response_model=ProductResponse, status_code=201)
+def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+    logger.info(f"Creating product: {product.code}")
+    existing = db.query(Product).filter(Product.code == product.code).first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Product with code '{product.code}' already exists",
+        )
+    db_product = Product(**product.model_dump())
+    db.add(db_product)
+    db.commit()
+    db.refresh(db_product)
+    return db_product
+
+
+@app.put("/api/products/{code}", response_model=ProductResponse)
+def update_product(
+    code: str, product_update: ProductUpdate, db: Session = Depends(get_db)
+):
+    logger.info(f"Updating product: {code}")
+    product = db.query(Product).filter(Product.code == code).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    update_data = product_update.model_dump(exclude_unset=True)
+
+    if "code" in update_data and update_data["code"] != code:
+        existing = db.query(Product).filter(
+            Product.code == update_data["code"]
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Product code '{update_data['code']}' already exists",
+            )
+        db.query(Analysis).filter(Analysis.product_code == code).update(
+            {"product_code": update_data["code"]}
+        )
+
+    for key, value in update_data.items():
+        setattr(product, key, value)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@app.delete("/api/products/{code}")
+def delete_product(
+    code: str, force: bool = Query(False), db: Session = Depends(get_db)
+):
+    logger.info(f"Deleting product: {code} (force={force})")
+    product = db.query(Product).filter(Product.code == code).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    analysis_count = (
+        db.query(Analysis).filter(Analysis.product_code == code).count()
+    )
+    if analysis_count > 0:
+        if not force:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete product: {analysis_count} analyses reference this product. Use force=true to delete anyway.",
+            )
+        db.query(Analysis).filter(Analysis.product_code == code).delete()
+
+    db.query(FinancialContext).filter(
+        FinancialContext.product_code == code
+    ).delete()
+    db.delete(product)
+    db.commit()
+    return {"status": "deleted", "code": code}
+
+
+@app.get("/api/contexts/search")
+def search_financial_context(
+    topic: str = Query(..., description="Topic to search for"),
+    db: Session = Depends(get_db),
+):
+    """Used by agent-service to look up financial context by topic (fuzzy match)."""
+    logger.debug(f"Searching financial context for topic: {topic}")
+    topic_lower = topic.lower()
+
+    # Search financial_contexts table
+    all_contexts = db.query(FinancialContext).all()
+    for ctx in all_contexts:
+        if topic_lower in ctx.topic_key.lower() or ctx.topic_key.lower() in topic_lower:
+            return {
+                "topic_key": ctx.topic_key,
+                "context_type": ctx.context_type,
+                "data": json.loads(ctx.context_data),
+            }
+
+    # Fallback: search product backgrounds
+    products = db.query(Product).filter(Product.background.isnot(None)).all()
+    for p in products:
+        if topic_lower in p.name.lower() or topic_lower in p.code.lower() or (p.sector and topic_lower in p.sector.lower()):
+            return {
+                "topic_key": p.code,
+                "context_type": "product",
+                "data": {
+                    "name": p.name,
+                    "sector": p.sector,
+                    "background": p.background,
+                },
+            }
+
+    return {"topic_key": None, "context_type": None, "data": None}
+
+
+@app.get("/api/contexts", response_model=List[FinancialContextResponse])
+def get_financial_contexts(
+    search: Optional[str] = Query(None),
+    product_code: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    logger.debug(f"Fetching financial contexts: search={search}, product_code={product_code}")
+    query = db.query(FinancialContext)
+    if product_code:
+        query = query.filter(FinancialContext.product_code == product_code)
+    if search:
+        query = query.filter(FinancialContext.topic_key.ilike(f"%{search}%"))
+    return query.all()
 
 
 @app.get("/api/news", response_model=List[NewsWithAnalysis])

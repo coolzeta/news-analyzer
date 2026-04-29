@@ -36,6 +36,7 @@ services:
       - LLM_PROVIDER=${LLM_PROVIDER:-openrouter}
       - LLM_MODEL=${LLM_MODEL}
       - LLM_API_KEY=${LLM_API_KEY}
+      - MAIN_SERVICE_URL=http://main-service:8000
       - PORT=8001
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8001/health"]

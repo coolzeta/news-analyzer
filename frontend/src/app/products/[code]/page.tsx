@@ -169,6 +169,13 @@ function ProductDetailContent({ code }: { code: string }) {
             </span>
           )}
         </div>
+
+        {product.background && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <h3 className="text-sm font-medium text-blue-800 mb-2">Background</h3>
+            <p className="text-sm text-blue-900 whitespace-pre-wrap">{product.background}</p>
+          </div>
+        )}
       </div>
 
       <section>

@@ -19,7 +19,7 @@ const analysisEvents = new EventEmitter();
 const activeAnalyses = new Map();
 
 const SYSTEM_PROMPT = prompts?.system || `
-You are a rigorous financial news analyst specializing in ETF impact assessment.
+You are a rigorous financial news analyst specializing in US stock and ETF impact assessment.
 Your role is to provide OBJECTIVE, EVIDENCE-BASED analysis.
 
 ## Core Principles
@@ -37,29 +37,29 @@ Your role is to provide OBJECTIVE, EVIDENCE-BASED analysis.
 ## Relevance Score Criteria (BE PRECISE)
 
 **Score 0-2 (EXCLUDE from results)**: No meaningful connection
-- Product is in same broad region/sector but no specific linkage
+- Product is in same broad sector but no specific linkage
 - Impact is too indirect or speculative
-- Example: A China regulatory news but product is Japan ETF with no China exposure
+- Example: A general tech regulation news but product is an automaker with minimal tech exposure
 
 **Score 3-4 (MARGINAL relevance)**: Indirect but plausible connection
 - Product has exposure to mentioned sector/region
 - Impact chain exists but involves multiple assumptions
-- Example: Semiconductor equipment news -> Samsung ETF (Samsung makes chips, uses equipment)
+- Example: AI chip export control news -> Microsoft (Azure uses AI chips indirectly)
 
 **Score 5-6 (MODERATE relevance)**: Clear indirect connection
 - Product's underlying assets directly related to news topic
 - Impact mechanism is clear but timing/magnitude uncertain
-- Example: SK Hynix earnings miss -> SK Hynix leveraged ETF
+- Example: NVIDIA earnings miss -> QQQ (NVIDIA is a major QQQ component)
 
 **Score 7-8 (HIGH relevance)**: Direct material impact expected
-- News directly concerns product's tracked index/underlying
+- News directly concerns product or its tracked index
 - Clear and immediate impact pathway
-- Example: BoJ rate hike -> Nikkei 225 ETF
+- Example: Fed rate hike -> SPY (S&P 500 directly affected by rate policy)
 
 **Score 9-10 (CRITICAL relevance)**: Primary direct impact
-- News is about the exact underlying asset
+- News is about the exact stock/ETF
 - Product will be materially affected in near-term
-- Example: Samsung stock plunges 5% -> Samsung 2x leveraged ETF
+- Example: NVIDIA stock plunges 5% on earnings -> NVDA (direct stock impact)
 
 ## Sentiment Guidelines
 
@@ -78,14 +78,14 @@ Each summary MUST:
 4. Be 2-3 sentences, no fluff
 
 Example of GOOD analysis:
-"Samsung reported Q3 revenue decline of 12% YoY due to weak memory chip demand.
-This directly impacts the Samsung 2x Leveraged ETF which tracks Samsung stock
-performance. The negative sentiment is clear, though magnitude depends on whether
-this was already priced in."
+"NVIDIA reported Q4 data center revenue of $18.3B, beating estimates by 8%, driven by
+unprecedented AI GPU demand. This directly benefits NVDA stock and also lifts QQQ and SMH
+where NVIDIA is the largest holding. The positive sentiment is clear, though some upside
+may already be priced in."
 
 Example of BAD analysis (DO NOT DO THIS):
-"Samsung news may affect the ETF as it tracks Samsung. The impact could be
-significant depending on market reaction."
+"NVIDIA news may affect the stock price. The impact could be significant depending on
+market reaction."
 
 ## Tools Usage
 
@@ -123,7 +123,7 @@ Call this AFTER you have:
 ## Parameter Requirements
 
 **results**: Array of product analyses. Each entry MUST include:
-- **product_code** (string): Exact product code from the provided list (e.g., "7709.HK")
+- **product_code** (string): Exact product code from the provided list (e.g., "NVDA", "SPY")
 - **relevance_score** (integer 0-10): 
   - 0-2: Exclude from results (not relevant enough)
   - 3-4: Marginal relevance (indirect connection)
@@ -146,16 +146,16 @@ Call this AFTER you have:
 {
   "results": [
     {
-      "product_code": "7709.HK",
+      "product_code": "NVDA",
       "relevance_score": 8,
       "sentiment": "Negative",
-      "impact_summary": "SK Hynix reported Q3 revenue decline of 15% due to weak memory demand. This directly impacts 7709.HK which is a 2x leveraged ETF tracking SK Hynix stock. The negative earnings surprise will likely cause downward pressure on the ETF."
+      "impact_summary": "NVIDIA reported Q4 data center revenue below consensus estimates due to China export restrictions impacting shipments. This directly impacts NVDA stock as data center represents 80%+ of total revenue. The negative earnings surprise will likely pressure the stock in the near term."
     },
     {
-      "product_code": "7747.HK",
+      "product_code": "QQQ",
       "relevance_score": 4,
       "sentiment": "Negative",
-      "impact_summary": "Memory chip weakness affects Samsung as a major DRAM/NAND producer. However, Samsung's diversified business (smartphones, appliances) provides some buffer. Impact is indirect via memory market sentiment."
+      "impact_summary": "NVIDIA weakness affects QQQ as it is one of the largest holdings (~8% weight). However, QQQ's diversified exposure across 100 Nasdaq stocks provides some buffer. Impact is indirect via tech sector sentiment."
     }
   ]
 }
@@ -163,7 +163,7 @@ Call this AFTER you have:
     parameters: Type.Object({
       results: Type.Array(Type.Object({
         product_code: Type.String({ 
-          description: 'Exact product code from the provided list (e.g., "7709.HK", "2828.HK"). Do NOT invent codes.' 
+          description: 'Exact product code from the provided list (e.g., "NVDA", "SPY"). Do NOT invent codes.'
         }),
         relevance_score: Type.Integer({ 
           description: 'Integer 0-10. 0-2: exclude, 3-4: marginal, 5-6: moderate, 7-8: high, 9-10: critical. Must be >= 3 to include.' 
@@ -212,10 +212,10 @@ Search the web for additional context using DuckDuckGo.
 - **max_results** (optional): Number of results, default 5, max 10
 
 ## Example Queries
-- "Samsung Electronics Q4 2024 earnings results"
-- "SK Hynix HBM demand 2024"
-- "China property sector stimulus 2024"
-- "Nikkei 225 index performance March 2024"
+- "NVIDIA Q4 2025 earnings results"
+- "Tesla vehicle deliveries Q1 2025"
+- "Federal Reserve interest rate decision 2025"
+- "S&P 500 index performance April 2025"
 `.trim(),
     parameters: Type.Object({
       query: Type.String({ 
@@ -283,7 +283,7 @@ Returns empty message if no matches found.
 `.trim(),
     parameters: Type.Object({
       query: Type.String({ 
-        description: 'Search keywords: company name, sector, or topic (e.g., "Samsung", "semiconductor", "China property")' 
+        description: 'Search keywords: company name, sector, or topic (e.g., "NVIDIA", "AI", "semiconductor")'
       }),
       limit: Type.Optional(Type.Integer({ 
         description: 'Maximum number of articles to return (default: 5)' 
@@ -342,19 +342,13 @@ Get pre-defined financial context for companies, sectors, and market themes.
 ## When to Use
 - Need background on a company's business segments
 - Understanding sector dynamics and key players
-- Learning about ETF mechanics (leveraged, inverse)
+- Learning about ETF composition and market dynamics
 - Quick reference for market themes
 
 ## When NOT to Use
 - Need real-time data (use web_search instead)
 - The topic is not in our pre-defined list
 - You already have sufficient context
-
-## Available Context Types
-- **Companies**: Samsung Electronics, SK Hynix
-- **Sectors**: semiconductor, technology, memory chip
-- **Markets**: China A-share, Hong Kong equity, Japan equity
-- **Products**: leveraged ETF, inverse ETF
 
 ## Parameters
 - **topic** (required): Company name, sector, or theme
@@ -365,19 +359,53 @@ Structured context including overview, key metrics, market dynamics, and ETF imp
 Returns "not found" message if topic is not in our database.
 `.trim(),
     parameters: Type.Object({
-      topic: Type.String({ 
-        description: 'Company name, sector, or market theme (e.g., "Samsung Electronics", "semiconductor", "leveraged ETF")' 
+      topic: Type.String({
+        description: 'Company name, sector, or market theme (e.g., "NVIDIA", "AI & semiconductor", "US equity market")'
       }),
-      context_type: Type.Optional(Type.String({ 
-        description: 'Type of context: "company", "sector", or "theme" (default: auto-detect)' 
+      context_type: Type.Optional(Type.String({
+        description: 'Type of context: "company", "sector", or "theme" (default: auto-detect)'
       }))
     }),
     execute: async (toolCallId, params, signal, onUpdate) => {
       const topicLower = params.topic.toLowerCase();
       log('info', 'get_financial_context called', { topic: params.topic });
-      
-      let matchedContext = null;
 
+      // Primary: call main-service API
+      if (config.mainServiceUrl) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), config.httpTimeout);
+
+          const response = await fetch(
+            `${config.mainServiceUrl}/api/contexts/search?topic=${encodeURIComponent(params.topic)}`,
+            { signal: controller.signal }
+          );
+          clearTimeout(timeout);
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.data) {
+              const contextText = typeof data.data === 'string'
+                ? data.data
+                : Object.entries(data.data)
+                    .map(([k, v]) => `${k.replace(/_/g, ' ').toUpperCase()}:\n${typeof v === 'string' ? v : (Array.isArray(v) ? v.join(', ') : JSON.stringify(v, null, 2))}`)
+                    .join('\n\n');
+
+              return {
+                content: [{
+                  type: 'text',
+                  text: `Financial context for "${params.topic}":\n\n${contextText}`
+                }]
+              };
+            }
+          }
+        } catch (error) {
+          log('error', 'Failed to fetch context from main-service, falling back to static', { error: error.message });
+        }
+      }
+
+      // Fallback: use static in-memory contexts
+      let matchedContext = null;
       for (const [key, context] of Object.entries(financialContexts)) {
         if (topicLower.includes(key) || key.includes(topicLower)) {
           matchedContext = { key, ...context };
@@ -390,7 +418,7 @@ Returns "not found" message if topic is not in our database.
         const contextText = Object.entries(context)
           .map(([k, v]) => `${k.replace(/_/g, ' ').toUpperCase()}:\n${typeof v === 'string' ? v : (Array.isArray(v) ? v.join(', ') : JSON.stringify(v, null, 2))}`)
           .join('\n\n');
-        
+
         return {
           content: [{
             type: 'text',
@@ -398,7 +426,7 @@ Returns "not found" message if topic is not in our database.
           }]
         };
       }
-      
+
       return {
         content: [{
           type: 'text',

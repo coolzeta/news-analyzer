@@ -6,6 +6,7 @@ export interface Product {
   domicile: string | null;
   sector: string | null;
   theme: string | null;
+  background: string | null;
 }
 
 export interface News {

@@ -32,7 +32,24 @@ export const api = {
   getProducts: () => fetchAPI<Product[]>('/api/products'),
   
   getProduct: (code: string) => fetchAPI<Product>(`/api/products/${code}`),
-  
+
+  createProduct: (product: Omit<Product, 'id'>) =>
+    fetchAPI<Product>('/api/products', {
+      method: 'POST',
+      body: JSON.stringify(product),
+    }),
+
+  updateProduct: (code: string, product: Partial<Product>) =>
+    fetchAPI<Product>(`/api/products/${code}`, {
+      method: 'PUT',
+      body: JSON.stringify(product),
+    }),
+
+  deleteProduct: (code: string, force = false) =>
+    fetchAPI<{ status: string; code: string }>(`/api/products/${code}?force=${force}`, {
+      method: 'DELETE',
+    }),
+
   getProductImpacts: (code: string, minRelevance = 0) => 
     fetchAPI<NewsWithAnalysis[]>(`/api/products/${code}/impacts?min_relevance=${minRelevance}`),
   

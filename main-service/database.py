@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from pathlib import Path
 from sqlalchemy import (
@@ -10,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -67,6 +69,17 @@ class Product(Base):
     domicile = Column(String)
     sector = Column(String)
     theme = Column(String)
+    background = Column(Text)
+
+
+class FinancialContext(Base):
+    __tablename__ = "financial_contexts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    topic_key = Column(String, unique=True, index=True, nullable=False)
+    context_type = Column(String, nullable=False)
+    context_data = Column(Text, nullable=False)
+    product_code = Column(String, ForeignKey("products.code"), nullable=True)
 
 
 class News(Base):
@@ -115,63 +128,88 @@ def get_db():
         db.close()
 
 
+def _migrate_add_background(db):
+    """Add background column to products table if it doesn't exist."""
+    if DATABASE_URL.startswith("sqlite"):
+        result = db.execute(text("PRAGMA table_info(products)")).fetchall()
+        columns = [row[1] for row in result]
+        if "background" not in columns:
+            db.execute(text("ALTER TABLE products ADD COLUMN background TEXT"))
+            db.commit()
+            logger.info("Added 'background' column to products table")
+
+
 def init_products(db):
     products = [
         {
-            "code": "7709.HK",
-            "name": "CSOP SK Hynix Daily (2x) Lvrgd ProdSwap",
+            "code": "NVDA",
+            "name": "NVIDIA Corporation",
             "asset_class": "Equity",
-            "domicile": "Hong Kong",
+            "domicile": "United States",
             "sector": "Technology",
         },
         {
-            "code": "7747.HK",
-            "name": "CSOP Samsung Electronics Daily (2x) Lvrgd ProdSwap",
+            "code": "AAPL",
+            "name": "Apple Inc.",
             "asset_class": "Equity",
-            "domicile": "Hong Kong",
+            "domicile": "United States",
             "sector": "Technology",
         },
         {
-            "code": "7347.HK",
-            "name": "CSOP Samsung Electronics Daily (-2x) Inverse ProdSwap",
+            "code": "TSLA",
+            "name": "Tesla, Inc.",
             "asset_class": "Equity",
-            "domicile": "Hong Kong",
+            "domicile": "United States",
+            "sector": "Consumer Discretionary",
+        },
+        {
+            "code": "MSFT",
+            "name": "Microsoft Corporation",
+            "asset_class": "Equity",
+            "domicile": "United States",
             "sector": "Technology",
         },
         {
-            "code": "2828.HK",
-            "name": "iShares MSCI China A ETF",
+            "code": "AMZN",
+            "name": "Amazon.com, Inc.",
             "asset_class": "Equity",
-            "domicile": "Hong Kong",
-            "sector": "China A-Share",
+            "domicile": "United States",
+            "sector": "Consumer Discretionary",
         },
         {
-            "code": "83168.HK",
-            "name": "CSOP Hang Seng Index ETF",
+            "code": "GOOGL",
+            "name": "Alphabet Inc.",
             "asset_class": "Equity",
-            "domicile": "Hong Kong",
-            "sector": "Hong Kong Equity",
+            "domicile": "United States",
+            "sector": "Communication Services",
         },
         {
-            "code": "3010.HK",
-            "name": "CSOP SSE 50 ETF",
+            "code": "META",
+            "name": "Meta Platforms, Inc.",
             "asset_class": "Equity",
-            "domicile": "Hong Kong",
-            "sector": "China A-Share",
+            "domicile": "United States",
+            "sector": "Communication Services",
         },
         {
-            "code": "3033.HK",
-            "name": "CSOP CSI 500 ETF",
-            "asset_class": "Equity",
-            "domicile": "Hong Kong",
-            "sector": "China A-Share",
+            "code": "SPY",
+            "name": "SPDR S&P 500 ETF Trust",
+            "asset_class": "ETF",
+            "domicile": "United States",
+            "sector": "Broad Market",
         },
         {
-            "code": "3115.HK",
-            "name": "CSOP Nikkei 225 ETF",
-            "asset_class": "Equity",
-            "domicile": "Hong Kong",
-            "sector": "Japan Equity",
+            "code": "QQQ",
+            "name": "Invesco QQQ Trust (Nasdaq-100)",
+            "asset_class": "ETF",
+            "domicile": "United States",
+            "sector": "Technology",
+        },
+        {
+            "code": "SMH",
+            "name": "VanEck Semiconductor ETF",
+            "asset_class": "ETF",
+            "domicile": "United States",
+            "sector": "Semiconductor",
         },
     ]
     for p in products:
@@ -179,3 +217,64 @@ def init_products(db):
         if not existing:
             db.add(Product(**p))
     db.commit()
+
+
+# Mapping: JSON key -> context_type
+_CONTEXT_TYPE_MAP = {
+    "nvidia": "company",
+    "apple": "company",
+    "tesla": "company",
+    "microsoft": "company",
+    "amazon": "company",
+    "alphabet": "company",
+    "meta": "company",
+    "ai & semiconductor": "sector",
+    "us equity market": "market",
+    "technology": "sector",
+}
+
+# Mapping: JSON key -> associated product code(s)
+_CONTEXT_PRODUCT_MAP = {
+    "nvidia": "NVDA",
+    "apple": "AAPL",
+    "tesla": "TSLA",
+    "microsoft": "MSFT",
+    "amazon": "AMZN",
+    "alphabet": "GOOGL",
+    "meta": "META",
+}
+
+
+def init_financial_contexts(db):
+    """Seed financial_contexts table from seed_contexts.json if not already present."""
+    # Look for seed file next to this script first (works in Docker)
+    contexts_path = Path(__file__).parent / "seed_contexts.json"
+    if not contexts_path.exists():
+        # Fallback: try agent-service sibling directory (works in local dev)
+        contexts_path = Path(__file__).parent.parent / "agent-service" / "src" / "financial-contexts.json"
+
+    if not contexts_path.exists():
+        logger.info("No financial-contexts.json found, skipping context seed")
+        return
+
+    try:
+        with open(contexts_path, "r", encoding="utf-8") as f:
+            contexts_data = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load financial contexts: {e}")
+        return
+
+    for key, value in contexts_data.items():
+        existing = db.query(FinancialContext).filter(
+            FinancialContext.topic_key == key
+        ).first()
+        if not existing:
+            ctx = FinancialContext(
+                topic_key=key,
+                context_type=_CONTEXT_TYPE_MAP.get(key, "sector"),
+                context_data=json.dumps(value, ensure_ascii=False),
+                product_code=_CONTEXT_PRODUCT_MAP.get(key),
+            )
+            db.add(ctx)
+    db.commit()
+    logger.info(f"Financial contexts initialized from {contexts_path}")

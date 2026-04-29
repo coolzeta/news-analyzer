@@ -125,14 +125,16 @@ cd collector && pip install -r requirements.txt && python main.py --daemon --int
 
 | Code | Name | Sector |
 |------|------|--------|
-| `7709.HK` | CSOP SK Hynix Daily (2x) Leveraged | Technology |
-| `7747.HK` | CSOP Samsung Electronics Daily (2x) Leveraged | Technology |
-| `7347.HK` | CSOP Samsung Electronics Daily (-2x) Inverse | Technology |
-| `2828.HK` | iShares MSCI China A ETF | China A-Share |
-| `83168.HK` | CSOP Hang Seng Index ETF | Hong Kong Equity |
-| `3010.HK` | CSOP SSE 50 ETF | China A-Share |
-| `3033.HK` | CSOP CSI 500 ETF | China A-Share |
-| `3115.HK` | CSOP Nikkei 225 ETF | Japan Equity |
+| `NVDA` | NVIDIA Corporation | Technology |
+| `AAPL` | Apple Inc. | Technology |
+| `TSLA` | Tesla, Inc. | Consumer Discretionary |
+| `MSFT` | Microsoft Corporation | Technology |
+| `AMZN` | Amazon.com, Inc. | Consumer Discretionary |
+| `GOOGL` | Alphabet Inc. | Communication Services |
+| `META` | Meta Platforms, Inc. | Communication Services |
+| `SPY` | SPDR S&P 500 ETF Trust | Broad Market |
+| `QQQ` | Invesco QQQ Trust (Nasdaq-100) | Technology |
+| `SMH` | VanEck Semiconductor ETF | Semiconductor |
 
 ---
 
